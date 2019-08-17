@@ -1,0 +1,17 @@
+[package]
+name = "json-sysctl"
+version = "0.1.0"
+authors = ["Alex Gaynor <alex.gaynor@gmail.com", "Geoffrey Thomas <geofft@ldpreload.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+linux-kernel-module = { path = "../.." }
+serde = { version = "*", default-features = false , features = ["derive"] }
+serde-json-core = { git = "https://github.com/japaric/serde-json-core" }
+typenum = "*"
+
+[patch.crates-io]
+byteorder = { path = "/root/byteorder" }
