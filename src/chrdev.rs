@@ -125,7 +125,7 @@ unsafe extern "C" fn read_callback<T: FileOperations>(
     };
     let f = &*((*file).private_data as *const T);
     // TODO: Pass offset to read()?
-    match f.read(&mut data) {
+    match f.read(&mut data, *offset) {
         Ok(()) => {
             let written = len - data.len();
             (*offset) += written as bindings::loff_t;
@@ -197,5 +197,5 @@ pub trait FileOperations: Sync + Sized {
     const VTABLE: FileOperationsVtable;
 
     fn open() -> KernelResult<Self>;
-    fn read(&self, buf: &mut UserSlicePtrWriter) -> KernelResult<()>;
+    fn read(&self, buf: &mut UserSlicePtrWriter, offset: i64) -> KernelResult<()>;
 }
