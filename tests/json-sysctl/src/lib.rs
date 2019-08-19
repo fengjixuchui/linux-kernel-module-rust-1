@@ -37,7 +37,7 @@ impl linux_kernel_module::chrdev::FileOperations for JsonChrdev {
         };
         let mut s = serde_json_core::to_string::<typenum::U32, _>(&o).map_err(|_| error::Error::ENOMEM)?;
         s.push_str("\n").map_err(|_| error::Error::ENOMEM)?;
-        buf.write(&s.into_bytes()[offset.try_into()?..])?;
+        buf.write(&s.into_bytes()[offset.try_into()?..][..buf.len()])?;
         Ok(())
     }
 }
