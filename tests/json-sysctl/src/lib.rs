@@ -1,15 +1,15 @@
 #![no_std]
 #![feature(const_str_as_bytes)]
 
-use core::sync::atomic::{AtomicBool, Ordering};
 use core::convert::TryInto;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
 use serde_json_core;
 
+use linux_kernel_module::error;
 use linux_kernel_module::sysctl::Sysctl;
 use linux_kernel_module::Mode;
-use linux_kernel_module::error;
 
 static A: AtomicBool = AtomicBool::new(false);
 static B: AtomicBool = AtomicBool::new(false);
@@ -35,7 +35,8 @@ impl linux_kernel_module::chrdev::FileOperations for JsonChrdev {
             b: B.load(Ordering::Relaxed),
             c: C.load(Ordering::Relaxed),
         };
-        let mut s = serde_json_core::to_string::<typenum::U32, _>(&o).map_err(|_| error::Error::ENOMEM)?;
+        let mut s =
+            serde_json_core::to_string::<typenum::U32, _>(&o).map_err(|_| error::Error::ENOMEM)?;
         s.push_str("\n").map_err(|_| error::Error::ENOMEM)?;
         buf.write(&s.into_bytes()[offset.try_into()?..][..buf.len()])?;
         Ok(())
@@ -62,24 +63,9 @@ impl linux_kernel_module::KernelModule for JsonSysctlModule {
             .register_device::<JsonChrdev>()
             .build()?;
         Ok(JsonSysctlModule {
-            _a: Sysctl::register(
-                "json-sysctl\x00",
-                "a\x00",
-                &A,
-                Mode::from_int(0o666),
-            )?,
-            _b: Sysctl::register(
-                "json-sysctl\x00",
-                "b\x00",
-                &B,
-                Mode::from_int(0o666),
-            )?,
-            _c: Sysctl::register(
-                "json-sysctl\x00",
-                "c\x00",
-                &C,
-                Mode::from_int(0o666),
-            )?,
+            _a: Sysctl::register("json-sysctl\x00", "a\x00", &A, Mode::from_int(0o666))?,
+            _b: Sysctl::register("json-sysctl\x00", "b\x00", &B, Mode::from_int(0o666))?,
+            _c: Sysctl::register("json-sysctl\x00", "c\x00", &C, Mode::from_int(0o666))?,
             _chrdev_registration: chrdev_registration,
         })
     }
