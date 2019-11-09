@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 
 
 BASE_DIR = os.path.realpath(os.path.dirname(__file__))
@@ -16,7 +17,7 @@ def run(*args, **kwargs):
     subprocess.check_call(list(args), cwd=cwd, env=environ)
 
 
-def main():
+def main(argv):
     for path in os.listdir(BASE_DIR):
         if (
             not os.path.isdir(os.path.join(BASE_DIR, path)) or
@@ -25,40 +26,23 @@ def main():
             continue
 
         print("+ [{}]".format(path))
-        run(
-            "cargo", "xbuild",
-            "--target",
-            os.path.join(
-                BASE_DIR, os.path.pardir, "x86_64-linux-kernel-module.json"
-            ),
-            cwd=os.path.join(BASE_DIR, path),
-            environ=dict(
-                os.environ,
-                RUSTFLAGS="-Dwarnings",
-                CARGO_TARGET_DIR=os.path.relpath(
-                    os.path.join(BASE_DIR, "target"),
-                    os.path.join(BASE_DIR, path)
-                ),
-                XBUILD_SYSROOT_PATH=os.path.join(BASE_DIR, "target-sysroot"),
-            )
-        )
 
         run(
             "make", "-C", BASE_DIR,
-            "TEST_LIBRARY=target/x86_64-linux-kernel-module/debug/lib{}_tests.a".format(
-                path.replace("-", "_")
-            ),
+            "TEST_NAME={}_tests".format(path.replace("-", "_")),
+            "TEST_PATH={}".format(path),
+            "RUSTFLAGS=-Dwarnings",
         )
         # TODO: qemu
         run(
-            "cargo", "test", "--", "--test-threads=1",
+            "cargo", "test", "--no-default-features", "--", "--test-threads=1",
             cwd=os.path.join(BASE_DIR, path),
             environ=dict(
                 os.environ,
                 KERNEL_MODULE=os.path.join(BASE_DIR, "testmodule.ko"),
                 RUSTFLAGS="-Dwarnings",
                 CARGO_TARGET_DIR=os.path.relpath(
-                    os.path.join(BASE_DIR, "target"),
+                    os.path.join(BASE_DIR, "target-test"),
                     os.path.join(BASE_DIR, path)
                 ),
             )
@@ -66,4 +50,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)

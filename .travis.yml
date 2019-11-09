@@ -4,7 +4,7 @@ matrix:
 
 language: rust
 rust:
-    - nightly-2019-08-15
+    - nightly-2019-09-25
 cache:
     - cargo: true
 
@@ -14,13 +14,6 @@ branches:
 
 install:
     - sudo apt-get install -y "linux-headers-$(uname -r)" realpath
-    - type -p cargo-install-update || cargo install --force cargo-update
-    - |
-      if type -p cargo-xbuild; then
-          cargo install-update -i cargo-xbuild
-      else
-          cargo install --force cargo-xbuild
-      fi
     - rustup component add rust-src rustfmt clippy
 
 script:
@@ -31,7 +24,7 @@ script:
           (cd "$p" && cargo fmt --all -- --check) || exit 1
         fi
       done
-    - cargo clippy
+    - cargo clippy -- -D warnings
 
 after_failure:
     - dmesg

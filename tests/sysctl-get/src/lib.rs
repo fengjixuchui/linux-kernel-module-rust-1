@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(const_str_as_bytes)]
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -39,7 +38,7 @@ impl Drop for SysctlGetTestModule {
 
 linux_kernel_module::kernel_module!(
     SysctlGetTestModule,
-    author: "Alex Gaynor and Geoffrey Thomas",
+    author: "Fish in a Barrel Contributors",
     description: "A module for testing sysctls",
     license: "GPL"
 );

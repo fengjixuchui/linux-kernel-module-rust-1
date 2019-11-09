@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(const_str_as_bytes)]
 
 use linux_kernel_module::{self, cstr};
 
@@ -21,7 +20,7 @@ impl linux_kernel_module::KernelModule for ChrdevRegionAllocationTestModule {
 
 linux_kernel_module::kernel_module!(
     ChrdevRegionAllocationTestModule,
-    author: "Alex Gaynor and Geoffrey Thomas",
+    author: "Fish in a Barrel Contributors",
     description: "A module for testing character device region allocation",
     license: "GPL"
 );

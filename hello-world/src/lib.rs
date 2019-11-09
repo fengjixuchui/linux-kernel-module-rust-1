@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(const_str_as_bytes)]
 
 extern crate alloc;
 
@@ -31,7 +30,7 @@ impl Drop for HelloWorldModule {
 
 linux_kernel_module::kernel_module!(
     HelloWorldModule,
-    author: "Alex Gaynor and Geoffrey Thomas",
+    author: "Fish in a Barrel Contributors",
     description: "An extremely simple kernel module",
     license: "GPL"
 );

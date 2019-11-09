@@ -9,18 +9,21 @@ use crate::c_types;
 use crate::error;
 use crate::types::CStr;
 
-pub struct FileSystemRegistration<T: FileSystem> {
+pub struct Registration<T: FileSystem> {
     _phantom: marker::PhantomData<T>,
     ptr: Box<bindings::file_system_type>,
 }
 
-impl<T: FileSystem> Drop for FileSystemRegistration<T> {
+// This is safe because Registration doesn't actually expose any methods.
+unsafe impl<T> Sync for Registration<T> where T: FileSystem {}
+
+impl<T: FileSystem> Drop for Registration<T> {
     fn drop(&mut self) {
         unsafe { bindings::unregister_filesystem(&mut *self.ptr) };
     }
 }
 
-pub trait FileSystem {
+pub trait FileSystem: Sync {
     const NAME: &'static CStr;
     const FLAGS: FileSystemFlags;
 }
@@ -56,8 +59,8 @@ extern "C" fn mount_callback<T: FileSystem>(
     unsafe { bindings::mount_nodev(fs_type, flags, data, Some(fill_super_callback::<T>)) }
 }
 
-pub fn register<T: FileSystem>() -> error::KernelResult<FileSystemRegistration<T>> {
-    let mut fs_registration = FileSystemRegistration {
+pub fn register<T: FileSystem>() -> error::KernelResult<Registration<T>> {
+    let mut fs_registration = Registration {
         ptr: Box::new(bindings::file_system_type {
             name: T::NAME.as_ptr() as *const i8,
             owner: unsafe { &mut bindings::__this_module },

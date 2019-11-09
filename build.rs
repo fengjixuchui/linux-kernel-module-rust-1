@@ -29,6 +29,7 @@ const INCLUDED_FUNCTIONS: &[&str] = &[
 const INCLUDED_VARS: &[&str] = &[
     "EINVAL",
     "ENOMEM",
+    "ESPIPE",
     "EFAULT",
     "__this_module",
     "FS_REQUIRES_DEV",
@@ -40,6 +41,9 @@ const INCLUDED_VARS: &[&str] = &[
     "KERN_INFO",
     "VERIFY_WRITE",
     "LINUX_VERSION_CODE",
+    "SEEK_SET",
+    "SEEK_CUR",
+    "SEEK_END",
 ];
 const OPAQUE_TYPES: &[&str] = &[
     // These need to be opaque because they're both packed and aligned, which rustc
@@ -58,13 +62,12 @@ fn handle_kernel_version_cfg(bindings_path: &PathBuf) {
     let mut version = None;
     for line in f.lines() {
         let line = line.unwrap();
-        if line.starts_with("pub const LINUX_VERSION_CODE") {
-            let mut parts = line.split(" = ");
-            parts.next();
-            let raw_version = parts.next().unwrap();
-            // Remove the trailing semi-colon
-            version = Some(raw_version[..raw_version.len() - 1].parse::<u64>().unwrap());
-            break;
+        if let Some(type_and_value) = line.split("pub const LINUX_VERSION_CODE").nth(1) {
+            if let Some(value) = type_and_value.split("=").nth(1) {
+                let raw_version = value.split(";").next().unwrap();
+                version = Some(raw_version.trim().parse::<u64>().unwrap());
+                break;
+            }
         }
     }
     let version = version.expect("Couldn't find kernel version");
@@ -82,16 +85,45 @@ fn handle_kernel_version_cfg(bindings_path: &PathBuf) {
     }
 }
 
+fn handle_kernel_symbols_cfg(symvers_path: &PathBuf) {
+    let f = BufReader::new(fs::File::open(symvers_path).unwrap());
+    for line in f.lines() {
+        let line = line.unwrap();
+        if let Some(symbol) = line.split_ascii_whitespace().nth(1) {
+            if symbol == "setfl" {
+                println!("cargo:rustc-cfg=kernel_aufs_setfl");
+                break;
+            }
+        }
+    }
+}
+
+fn add_env_if_present(cmd: &mut Command, var: &str) {
+    if let Ok(val) = env::var(var) {
+        cmd.env(var, val);
+    }
+}
+
 fn main() {
     println!("cargo:rerun-if-env-changed=KDIR");
+    let kdir = env::var("KDIR").unwrap_or(format!(
+        "/lib/modules/{}/build",
+        std::str::from_utf8(&(Command::new("uname").arg("-r").output().unwrap().stdout))
+            .unwrap()
+            .trim()
+    ));
+
     println!("cargo:rerun-if-env-changed=CLANG");
     println!("cargo:rerun-if-changed=kernel-cflags-finder/Makefile");
-    let output = Command::new("make")
-        .arg("-C")
+    let mut cmd = Command::new("make");
+    cmd.arg("-C")
         .arg("kernel-cflags-finder")
         .arg("-s")
-        .output()
-        .unwrap();
+        .env_clear();
+    add_env_if_present(&mut cmd, "KDIR");
+    add_env_if_present(&mut cmd, "CLANG");
+    add_env_if_present(&mut cmd, "PATH");
+    let output = cmd.output().unwrap();
     if !output.status.success() {
         eprintln!("kernel-cflags-finder did not succeed");
         eprintln!("stdout: {}", std::str::from_utf8(&output.stdout).unwrap());
@@ -99,13 +131,15 @@ fn main() {
         std::process::exit(1);
     }
 
+    let target = env::var("TARGET").unwrap();
+
     let mut builder = bindgen::Builder::default()
         .use_core()
         .ctypes_prefix("c_types")
         .derive_default(true)
         .rustfmt_bindings(true);
 
-    builder = builder.clang_arg("--target=x86_64-linux-kernel-module");
+    builder = builder.clang_arg(format!("--target={}", target));
     for arg in shlex::split(std::str::from_utf8(&output.stdout).unwrap()).unwrap() {
         builder = builder.clang_arg(arg.to_string());
     }
@@ -133,11 +167,11 @@ fn main() {
         .expect("Couldn't write bindings!");
 
     handle_kernel_version_cfg(&out_path.join("bindings.rs"));
+    handle_kernel_symbols_cfg(&PathBuf::from(&kdir).join("Module.symvers"));
 
     let mut builder = cc::Build::new();
-    println!("cargo:rerun-if-env-changed=CLANG");
     builder.compiler(env::var("CLANG").unwrap_or("clang".to_string()));
-    builder.target("x86_64-linux-kernel-module");
+    builder.target(&target);
     builder.warnings(false);
     builder.file("src/helpers.c");
     for arg in shlex::split(std::str::from_utf8(&output.stdout).unwrap()).unwrap() {
